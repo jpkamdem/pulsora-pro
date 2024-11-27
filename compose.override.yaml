@@ -1,24 +1,67 @@
 # Development environment override
+# services:
+#   php:
+#     build:
+#       context: .
+#       target: frankenphp_dev
+#     volumes:
+#       - ./:/app
+#       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
+#       - ./frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+#       # If you develop on Mac or Windows you can remove the vendor/ directory
+#       #  from the bind-mount for better performance by enabling the next line:
+#       #- /app/vendor
+#     environment:
+#       MERCURE_EXTRA_DIRECTIVES: demo
+#       # See https://xdebug.org/docs/all_settings#mode
+#       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+#     extra_hosts:
+#       # Ensure that host.docker.internal is correctly defined on Linux
+#       - host.docker.internal:host-gateway
+#     tty: true
 services:
-  php:
-    build:
-      context: .
-      target: frankenphp_dev
-    volumes:
-      - ./:/app
-      - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
-      # If you develop on Mac or Windows you can remove the vendor/ directory
-      #  from the bind-mount for better performance by enabling the next line:
-      #- /app/vendor
+  db:
+    networks:
+      - pulsora
+    container_name: db
+    image: postgres:17.0
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./backend/.env
     environment:
-      MERCURE_EXTRA_DIRECTIVES: demo
-      # See https://xdebug.org/docs/all_settings#mode
-      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
-    extra_hosts:
-      # Ensure that host.docker.internal is correctly defined on Linux
-      - host.docker.internal:host-gateway
-    tty: true
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  api:
+    networks:
+      - pulsora
+    container_name: api
+    image: php:8.3-apache
+    volumes:
+      - ./backend:/var/www/html
+    # depends_on:
+    #   - db
+  web:
+    networks:
+      - pulsora
+    container_name: web
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/app/node_modules:/usr/src/app/node_modules
+    # depends_on:
+    #   - db
+volumes:
+  db_data:
 
+networks:
+  pulsora:
+    driver: bridge
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###
